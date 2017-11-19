@@ -56,6 +56,7 @@ defaults =
 	onCall: false
 	vibrant: false
 	version: 11
+	hours24: false
 
 # iOS 11 unfilled signal bar is 25%
 # iOS 11 battery stroke is 35%
@@ -72,6 +73,12 @@ class StatusBarLayer extends Layer
 
 		@.isHidden = @options.hide
 
+		isiPhoneX = () ->
+			if _.includes(Framer.Device.deviceType, "iphone-x")
+				return true
+			else
+				return false
+
 		isiPhone = () ->
 			if _.includes(Framer.Device.deviceType, "iphone")
 				return true
@@ -86,7 +93,9 @@ class StatusBarLayer extends Layer
 
 		getBatteryMargin = () =>
 			if @options.powered == false
-				if isiPhonePlus() and @options.version > 10
+				if isiPhoneX()
+					return 15
+				else if isiPhonePlus() and @options.version > 10
 					return 5
 				else
 					return 5.5
@@ -125,7 +134,7 @@ class StatusBarLayer extends Layer
 
 		topMargin = 3
 		onCallMargin = 18
-		statusBarHeight = 20
+		statusBarHeight = if isiPhoneX() then 44 else 20
 		onCallMargin = topMargin + onCallMargin
 		carrierMargin = 4.5
 		signalMargin = if isiPhonePlus() then 6 else 6.5
@@ -142,7 +151,7 @@ class StatusBarLayer extends Layer
 		onCallLetterSpacing = 0
 		onCallWordSpacing = 0
 		fontWeight = if isiPhonePlus() then 300 else 400
-		timeFontWeight = 500
+		timeFontWeight = 600
 
 		@.height = statusBarHeight
 
@@ -162,25 +171,23 @@ class StatusBarLayer extends Layer
 
 		appleSVGCSS = """
 			.svgFit {
-			  object-fit: contain;
-			  width: 100%;
-			  height: 100%;
-			  max-width: 100%;
-			  max-height: 100%;
+				object-fit: contain;
+				position: absolute;
+				top: 0;
 			}
 			"""
 
 		canvasSVGCSS = """
 			.svgFit {
-			  object-fit: contain;
-			  width: 100%;
-			  max-width: 100%;
-			  position: absolute;
-			  top: 0;
+				object-fit: contain;
+				width: 100%;
+				max-width: 100%;
+				position: absolute;
+				top: 0;
 			}
 			"""
 		svgCSS = if _.includes(Framer.Device.deviceType, "apple") then appleSVGCSS else canvasSVGCSS
-		
+
 		Utils.insertCSS(svgCSS)
 		signal_v10_2x = "<svg xmlns='http://www.w3.org/2000/svg' class='svgFit' viewBox='0 0 34 16'><circle cx='2.75' cy='2.75' r='2.75' fill='#{@options.foregroundColor}' /><circle cx='9.75' cy='2.75' r='2.75' fill='#{@options.foregroundColor}' /><circle cx='16.75' cy='2.75' r='2.75' fill='#{@options.foregroundColor}' /><circle cx='23.75' cy='2.75' r='2.75' fill='#{@options.foregroundColor}' /><circle cx='30.75' cy='2.75' r='2.5' stroke='#{@options.foregroundColor}' stroke-width='0.5' fill-opacity='0' class='stroked' /></svg>"
 		signal_v11_2x = "<svg xmlns='http://www.w3.org/2000/svg' class='svgFit' viewBox='0 0 33 33'><rect x='0' y='11' width='6' height='9' rx='2' fill='#{@options.foregroundColor}' /><rect x='9' y='8' width='6' height='12' rx='2' fill='#{@options.foregroundColor}' /><rect x='18' y='4' width='6' height='16' rx='2' fill='#{@options.foregroundColor}' /><rect x='27' y='0' width='6' height='20' rx='2' fill='#{@options.foregroundColor}' /></svg>"
@@ -216,6 +223,12 @@ class StatusBarLayer extends Layer
 			name: "onCallBlock"
 			height: statusBarHeight
 
+		if isiPhoneX()
+			onCallBlock.height = 20
+			onCallBlock.borderRadius = 20
+			onCallBlock.y = -20
+			onCallBlock.x = 19
+
 		@.onCallBlock = onCallBlock
 
 		onCallMessage = new TextLayer
@@ -238,7 +251,7 @@ class StatusBarLayer extends Layer
 			name: "carrier"
 			padding:
 				top: topMargin
-			text: @options.carrier
+			text: if isiPhoneX() then '' else @options.carrier
 			fontSize: baseFontSize
 			fontWeight: fontWeight
 			letterSpacing: letterSpacing
@@ -266,16 +279,17 @@ class StatusBarLayer extends Layer
 		@.wifi = wifi
 
 		getTime = () =>
+			if isiPhoneX() then @options.hours24 = true
 			today = new Date
 			day = today.getDay()
 			hour = today.getHours()
 			minute = today.getMinutes()
 			second = today.getSeconds()
 			suffix = if hour >= 12 then ' PM' else ' AM'
-			hour = if hour > 12 then hour - 12 else hour
+			hour = if !@options.hours24 and hour > 12 then hour - 12 else hour
 			minute = if minute < 10 then "0" + minute else minute
 			if @options.time == ""
-				return hour + ':' + minute + suffix
+				return hour + ':' + minute + (if !@options.hours24 then suffix else '')
 			else
 				return @options.time
 
@@ -290,6 +304,7 @@ class StatusBarLayer extends Layer
 			fontWeight: timeFontWeight
 			textAlign: "center"
 			letterSpacing: timeLetterSpacing
+			y: Align.center()
 
 		@.time = time
 
@@ -359,7 +374,7 @@ class StatusBarLayer extends Layer
 				carrierMargin = 0
 			if @options.signal == true
 				signal.visible = true
-				signal.x = signalMargin
+				signal.x = if isiPhoneX() then signalMargin + 288 else signalMargin
 				carrier.x = signal.x + signal.width + carrierMargin
 			else
 				signal.visible = false
@@ -368,10 +383,14 @@ class StatusBarLayer extends Layer
 				wifi.visible = true
 			else
 				wifi.visible = false
-			wifi.x = carrier.x + carrier.width + wifiMargin
+			if isiPhoneX()
+				wifi.x = signal.x + signal.width + wifiMargin + 1
+			else
+				wifi.x = carrier.x + carrier.width + wifiMargin
 			# Center current time and on-call
-			time.width = layoutWidth
-			onCallBlock.width = layoutWidth
+			time.width = if isiPhoneX() then 54 else layoutWidth
+			time.x = if isiPhoneX then 16 else 0
+			onCallBlock.width = if isiPhoneX() then 48 else layoutWidth
 			onCallMessage.width = layoutWidth
 			# Right-side items
 			if @options.powered == true
@@ -379,7 +398,7 @@ class StatusBarLayer extends Layer
 			else
 				power.x = layoutWidth
 			battery.x = power.x - battery.width - getBatteryMargin()
-			if @options.showPercentage == false
+			if @options.showPercentage == false or isiPhoneX()
 				percentageMargin = 0
 				percentage.text = ""
 			else
@@ -459,13 +478,19 @@ class StatusBarLayer extends Layer
 
 		@startCall = (message = "Touch to return to call 0:30", color = onCallColor) =>
 			@options.onCall = true
-			colorForeground("white")
-			colorBattery()
+			if isiPhoneX()
+				time.animate
+					color: 'white'
+					options: time: 0.25, curve: Bezier.linear
+			else
+				colorForeground("white")
+				colorBattery()
 			onCallBlock.animate
 				properties:
 					backgroundColor: color
 					opacity: 1
-					height: statusBarHeight * 2
+					height: if isiPhoneX() then onCallBlock.height else statusBarHeight * 2
+					y: if isiPhoneX() then Align.center(2) else 0
 				time:
 					0.25
 			onCallBlock.onAnimationEnd =>
@@ -478,7 +503,8 @@ class StatusBarLayer extends Layer
 			onCallBlock.animate
 				properties:
 					opacity: 0
-					height: statusBarHeight
+					height: if isiPhoneX() then onCallBlock.height else statusBarHeight * 2
+					y: if isiPhoneX() then onCallBlock.height * -1 else 0
 				time:
 					0.25
 			@applyStyle()
