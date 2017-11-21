@@ -389,7 +389,7 @@ class StatusBarLayer extends Layer
 				wifi.x = carrier.x + carrier.width + wifiMargin
 			# Center current time and on-call
 			time.width = if isiPhoneX() then 54 else layoutWidth
-			time.x = if isiPhoneX then 16 else 0
+			time.x = if isiPhoneX() then 16 else 0
 			onCallBlock.width = if isiPhoneX() then 48 else layoutWidth
 			onCallMessage.width = layoutWidth
 			# Right-side items
